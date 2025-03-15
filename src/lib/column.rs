@@ -1,18 +1,18 @@
 #[derive(Debug)]
 pub struct Column {
-    column_type:    ColumnType,
-    is_optional:    bool,
-    is_primary_key: bool,
-    is_foreign_key: bool,
+    _column_type: ColumnType,
+    _is_optional: bool,
+    _is_primary_key: bool,
+    _is_foreign_key: bool,
 }
 
 #[derive(Debug)]
 enum ColumnType {
-    UINT8,
-    SINT8,
-    UINT32,
-    SINT32,
-    FLOAT32,
-    FLOAT64,
-    STRING,
+    _UINT8,
+    _SINT8,
+    _UINT32,
+    _SINT32,
+    _FLOAT32,
+    _FLOAT64,
+    _STRING,
 }

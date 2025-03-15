@@ -18,8 +18,11 @@ fn main() -> () {
         },
         v0::Command::Dump,
     ];
-    for cmd in cmds {
+
+    for cmd in &cmds {
         let data: Vec<u8> = cmd.into();
+        let data_len = data.len() as u32;
+        stream.write(&data_len.to_le_bytes()).unwrap();
         stream.write(data.as_slice()).unwrap();
     }
 }

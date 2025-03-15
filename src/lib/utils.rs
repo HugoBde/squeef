@@ -1,32 +1,19 @@
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, Read};
 use std::mem;
 use std::net::TcpStream;
 
 pub fn read_msg(reader: &mut TcpStream) -> Result<Vec<u8>, io::Error> {
-    let mut buf: [u8; 256] = [0; 256];
-
-    reader.read(&buf).unwrap();
+    let mut buf: [u8; 4] = [0; 4];
 
     reader.read_exact(&mut buf)?;
 
-    let mut read_len = u32::from_le_bytes(buf) as usize;
+    let read_len = u32::from_le_bytes(buf) as usize;
 
-    let mut output = Vec::with_capacity(read_len);
+    let mut output = vec![0; read_len];
 
-    loop {
-        let bytes = reader.read_exact
+    reader.read_exact(output.as_mut_slice())?;
 
-        if bytes.len() > read_len {
-            output.extend_from_slice(&bytes[0..read_len]);
-            reader.consume(read_len);
-            return Ok(output);
-        } else {
-            let len = bytes.len();
-            read_len -= len;
-            output.extend_from_slice(bytes);
-            reader.consume(len);
-        }
-    }
+    return Ok(output);
 }
 
 pub fn parse_string(bytes: &[u8]) -> Result<(&[u8], String), String> {
@@ -37,7 +24,7 @@ pub fn parse_string(bytes: &[u8]) -> Result<(&[u8], String), String> {
         ));
     }
 
-    let len = u32::from_le_bytes(bytes.try_into().unwrap()) as usize;
+    let len = u32::from_le_bytes(bytes[0..mem::size_of::<u32>()].try_into().unwrap()) as usize;
 
     let bytes = &bytes[mem::size_of::<u32>()..];
 
@@ -45,10 +32,8 @@ pub fn parse_string(bytes: &[u8]) -> Result<(&[u8], String), String> {
         return Ok((bytes, String::new()));
     }
 
-
-    let string = String::from_utf8(Vec::from(&bytes[..len])).map_err(|e| {
-        format!("Invalid UTF-8 string. Got bytes {:x?}", e.into_bytes())
-    })?;
+    let string = String::from_utf8(Vec::from(&bytes[..len]))
+        .map_err(|e| format!("Invalid UTF-8 string. Got bytes {:x?}", e.into_bytes()))?;
 
     let bytes = &bytes[len..];
 

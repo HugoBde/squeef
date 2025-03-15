@@ -7,7 +7,7 @@ pub enum Command {
     CreateDatabase { name: String } = 0x00,
     OpenDatabase { name: String } = 0x01,
     CreateTable { name: String, cols: Vec<Column> } = 0x02,
-    Dump           = 0xff,
+    Dump = 0xff,
 }
 
 type TryFromCommandError = String;
@@ -16,65 +16,6 @@ impl TryFrom<&[u8]> for Command {
     type Error = TryFromCommandError;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        return Command::parse(bytes);
-
-        // if bytes.len() < 2 {
-        //     return Err(String::from("Invalid header"));
-        // }
-
-        // match bytes[0] {
-        //     0x00 => return Command::parse(&bytes[1..]),
-        //     _ => {
-        //         return Err(format!(
-        //             "Invalid message version. Got version {:x}",
-        //             bytes[0]
-        //         ))
-        //     }
-        // }
-    }
-}
-
-impl From<&Command> for u8 {
-    fn from(cmd: &Command) -> Self {
-        match cmd {
-            Command::CreateDatabase {
-                ..
-            } => 0x00,
-            Command::OpenDatabase {
-                ..
-            } => 0x01,
-            Command::CreateTable {
-                ..
-            } => 0x02,
-            Command::Dump => 0xff,
-        }
-    }
-}
-
-impl From<Command> for Vec<u8> {
-    fn from(cmd: Command) -> Self {
-        let mut bytes = vec![];
-
-        bytes.push(u8::from(&cmd));
-
-        match &cmd {
-            Command::CreateDatabase {
-                name,
-            } => cmd.serialise_create_db(name, &mut bytes),
-            Command::OpenDatabase {
-                name,
-            } => cmd.serialise_open_db(name, &mut bytes),
-            Command::CreateTable {
-                name, ..
-            } => cmd.serialise_create_table(name, &mut bytes),
-            Command::Dump => {}
-        }
-        return bytes;
-    }
-}
-
-impl Command {
-    fn parse(bytes: &[u8]) -> Result<Command, TryFromCommandError> {
         match bytes[0] {
             0x00 => return Self::parse_create_db(&bytes[1..]),
             0x01 => return Self::parse_open_db(&bytes[1..]),
@@ -88,7 +29,37 @@ impl Command {
             }
         }
     }
+}
 
+impl From<&Command> for u8 {
+    fn from(cmd: &Command) -> Self {
+        match cmd {
+            Command::CreateDatabase { .. } => 0x00,
+            Command::OpenDatabase { .. } => 0x01,
+            Command::CreateTable { .. } => 0x02,
+            Command::Dump => 0xff,
+        }
+    }
+}
+
+impl From<&Command> for Vec<u8> {
+    fn from(cmd: &Command) -> Self {
+        let mut bytes = vec![];
+
+        bytes.push(u8::from(cmd));
+
+        match cmd {
+            Command::CreateDatabase { name } => cmd.serialise_create_db(name, &mut bytes),
+            Command::OpenDatabase { name } => cmd.serialise_open_db(name, &mut bytes),
+            Command::CreateTable { name, .. } => cmd.serialise_create_table(name, &mut bytes),
+            Command::Dump => {}
+        }
+
+        return bytes;
+    }
+}
+
+impl Command {
     fn parse_create_db(bytes: &[u8]) -> Result<Command, TryFromCommandError> {
         let (bytes, name) = utils::parse_string(bytes)?;
 
@@ -99,9 +70,7 @@ impl Command {
             ));
         }
 
-        return Ok(Command::CreateDatabase {
-            name,
-        });
+        return Ok(Command::CreateDatabase { name });
     }
 
     fn parse_open_db(bytes: &[u8]) -> Result<Command, TryFromCommandError> {
@@ -114,14 +83,10 @@ impl Command {
             ));
         }
 
-        return Ok(Command::CreateDatabase {
-            name,
-        });
+        return Ok(Command::OpenDatabase { name });
     }
 
-    fn parse_create_table(
-        bytes: &[u8],
-    ) -> Result<Command, TryFromCommandError> {
+    fn parse_create_table(bytes: &[u8]) -> Result<Command, TryFromCommandError> {
         let (bytes, name) = utils::parse_string(bytes)?;
 
         if bytes.len() > 0 {
@@ -131,10 +96,7 @@ impl Command {
             ));
         }
 
-        return Ok(Command::CreateTable {
-            name,
-            cols: vec![],
-        });
+        return Ok(Command::CreateTable { name, cols: vec![] });
     }
 
     fn parse_dump(_: &[u8]) -> Result<Command, TryFromCommandError> {

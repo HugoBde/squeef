@@ -6,3 +6,6 @@ edition = "2021"
 [lib]
 name = "squeef"
 path = "src/lib/squeef.rs"
+
+[dependencies]
+chrono = "0.4.40"

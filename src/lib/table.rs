@@ -3,14 +3,14 @@ use crate::column::Column;
 #[derive(Debug)]
 pub struct Table {
     pub name: String,
-    columns:  Vec<Column>,
+    _columns: Vec<Column>,
 }
 
 impl Table {
     pub fn new(name: String) -> Table {
         Table {
             name,
-            columns: vec![],
+            _columns: vec![],
         }
     }
 }
