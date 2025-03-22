@@ -1,11 +1,12 @@
 use std::io::ErrorKind;
 use std::net::{TcpListener, TcpStream};
 
-use crate::database::Database;
+use squeef::database::Database;
+use squeef::protocol::v0::{self, Command};
+use squeef::table::Table;
+use squeef::utils;
+
 use crate::log::{LogLevel, Logger};
-use crate::protocol::v0::{self, Command};
-use crate::table::Table;
-use crate::utils;
 
 #[derive(Debug)]
 pub struct Server {

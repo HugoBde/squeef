@@ -1,0 +1,6 @@
+[server]
+port = 6870
+max_concurrent_connection = 3
+
+[storage]
+persistent_storage_dir = "./storage"
