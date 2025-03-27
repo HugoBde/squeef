@@ -57,7 +57,7 @@ pub enum LogLevel {
 pub struct Loggers(Vec<Logger>);
 
 impl Loggers {
-    pub fn log(&mut self, log_level: LogLevel, msg: &str) -> Result<()> {
+    pub fn log(&mut self, log_level: LogLevel, msg: &str) -> () {
         let t = Local::now().format("[%Y-%m-%d %H:%M:%S]");
         let prefix = match log_level {
             LogLevel::DEBUG => DEBUG_PREFIX,
@@ -75,8 +75,6 @@ impl Loggers {
 
             l.write(s.as_bytes()).unwrap();
         }
-
-        return Ok(());
     }
 }
 

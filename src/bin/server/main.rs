@@ -1,5 +1,7 @@
+// Std Lib Imports
 use std::io::stderr;
 
+// Executable Imports
 mod config;
 mod log;
 mod server;
@@ -16,11 +18,7 @@ fn main() {
         Box::new(stderr()),
     )]);
 
-    let mut s = Server::new(
-        CONFIG.server.port,
-        CONFIG.server.max_concurrent_connection,
-        loggers,
-    );
+    let mut s = Server::new(CONFIG.server.port, loggers);
 
     s.run();
 }

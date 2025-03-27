@@ -1,19 +1,19 @@
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
 
+use squeef::command::Command;
 use squeef::database::Database;
-use squeef::protocol::v0::{self, Command};
+use squeef::protocol::v0;
 use squeef::table::Table;
 use squeef::utils;
 
 use crate::log::{LogLevel, Loggers};
-use crate::thread_pool::ThreadPool;
 
 #[derive(Debug)]
 pub struct Server {
     port: u16,
-    thread_pool: ThreadPool,
 
     databases: Arc<RwLock<Vec<Database>>>,
 
@@ -21,11 +21,10 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(port: u16, max_concurrent_connection: isize, loggers: Loggers) -> Server {
+    pub fn new(port: u16, loggers: Loggers) -> Server {
         Server {
             port,
             loggers: Arc::new(Mutex::new(loggers)),
-            thread_pool: ThreadPool::new(max_concurrent_connection),
             databases: Arc::new(RwLock::new(vec![])),
         }
     }
@@ -41,18 +40,14 @@ impl Server {
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
+                    self.loggers.lock().unwrap().log(
+                        LogLevel::INFO,
+                        &format!("[{}] Incoming connection", stream.peer_addr().unwrap()),
+                    );
                     let mut client_connection =
                         ClientConnection::new(stream, self.databases.clone(), self.loggers.clone());
-                    match self.thread_pool.spawn(move || client_connection.run()) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            self.loggers
-                                .lock()
-                                .unwrap()
-                                .log(LogLevel::ERROR, &e.to_string());
-                            return;
-                        }
-                    }
+
+                    thread::spawn(move || client_connection.run());
                 }
                 Err(e) => {
                     self.loggers
@@ -66,7 +61,7 @@ impl Server {
     }
 }
 
-struct ClientConnection {
+pub struct ClientConnection {
     stream: TcpStream,
     databases: Arc<RwLock<Vec<Database>>>,
     loggers: Arc<Mutex<Loggers>>,
@@ -100,10 +95,10 @@ impl ClientConnection {
                 }
                 Err(e) => match e.kind() {
                     ErrorKind::UnexpectedEof => {
-                        self.loggers
-                            .lock()
-                            .unwrap()
-                            .log(LogLevel::INFO, "Connection closed");
+                        self.loggers.lock().unwrap().log(
+                            LogLevel::INFO,
+                            &format!("[{}] Connection closed", self.stream.peer_addr().unwrap()),
+                        );
                         return;
                     }
                     _ => {
@@ -123,13 +118,14 @@ impl ClientConnection {
             return Err(String::from("Invalid message: incomplete header"));
         }
 
-        let cmd = v0::Command::try_from(msg)?;
+        let cmd = v0::request::parse(msg)?;
 
         match cmd {
             Command::CreateDatabase { name } => self.exec_create_db(name),
             Command::OpenDatabase { name } => self.exec_open_db(name),
             Command::CreateTable { name, .. } => self.exec_create_table(name),
-            Command::Dump => self.exec_dump(),
+            Command::ListDatabases => self.exec_list_databases(),
+            Command::ListTables => self.exec_list_tables(),
         }
     }
 
@@ -142,6 +138,10 @@ impl ClientConnection {
             .find(|db| db.name == name)
             .is_some()
         {
+            self.stream
+                .write(&[0x02, 0x00, 0x00, 0x00, 0x00, 0x00])
+                .unwrap();
+
             return Err(format!(
                 "Failed to create database. Name [{}] already in use",
                 name
@@ -156,6 +156,10 @@ impl ClientConnection {
             .lock()
             .unwrap()
             .log(LogLevel::INFO, &format!("Created database [{}]", name));
+
+        self.stream
+            .write(&[0x02, 0x00, 0x00, 0x00, 0x00, 0x01])
+            .unwrap();
 
         return Ok(());
     }
@@ -218,15 +222,28 @@ impl ClientConnection {
         return Ok(());
     }
 
-    fn exec_dump(&self) -> Result<(), String> {
-        if self.open_db.is_none() {
-            return Err(format!("DUMP failed. No open database"));
+    fn exec_list_databases(&mut self) -> Result<(), String> {
+        let mut output = vec![];
+
+        // TODO: call the v0 resposne serialise function
+        output.push(0x03);
+
+        output.extend_from_slice(&(self.databases.read().unwrap().len() as u32).to_le_bytes());
+
+        for db in self.databases.read().unwrap().iter() {
+            utils::serialise_string(&db.name, &mut output);
         }
 
-        let open_db = &self.databases.read().unwrap()[self.open_db.unwrap()];
+        self.stream
+            .write((output.len() as u32).to_le_bytes().as_slice())
+            .unwrap();
 
-        eprintln!("DUMP: {open_db:#?}");
+        self.stream.write(output.as_slice()).unwrap();
 
         return Ok(());
+    }
+
+    fn exec_list_tables(&self) -> Result<(), String> {
+        todo!()
     }
 }

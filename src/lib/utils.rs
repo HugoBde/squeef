@@ -45,3 +45,43 @@ pub fn serialise_string(string: &String, bytes: &mut Vec<u8>) {
     bytes.extend_from_slice(&len.to_le_bytes());
     bytes.extend_from_slice(string.as_bytes());
 }
+
+pub fn parse_bool(bytes: &[u8]) -> Result<(&[u8], bool), String> {
+    if bytes.len() < mem::size_of::<u8>() {
+        return Err(format!(
+            "Data too short to hold bool. Got data length {}",
+            bytes.len()
+        ));
+    }
+
+    let bool_byte = bytes[0];
+
+    let bytes = &bytes[mem::size_of::<u8>()..];
+
+    return Ok((bytes, bool_byte != 0));
+}
+
+pub fn serialise_bool(bool: bool, bytes: &mut Vec<u8>) {
+    bytes.push(if bool { 1 } else { 0 });
+}
+
+pub fn parse_u32(bytes: &[u8]) -> Result<(&[u8], u32), String> {
+    if bytes.len() < mem::size_of::<u32>() {
+        return Err(format!(
+            "Data too short to hold u32. Got data length {}",
+            bytes.len()
+        ));
+    }
+
+    let u32_bytes = bytes[0..mem::size_of::<u32>()].try_into().unwrap();
+
+    let u32 = u32::from_le_bytes(u32_bytes);
+
+    let bytes = &bytes[mem::size_of::<u32>()..];
+
+    return Ok((bytes, u32));
+}
+
+pub fn serialise_u32(u32: u32, bytes: &mut Vec<u8>) {
+    bytes.extend_from_slice(&u32.to_le_bytes());
+}
